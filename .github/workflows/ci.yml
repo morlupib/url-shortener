@@ -1,34 +1,32 @@
-name: CI
+name: Deploy
 
 on:
   push:
     branches:
       - main
-  pull_request:
-
-permissions:
-  actions: read
-  contents: read
 
 jobs:
-  main:
+  build:
+    uses: ./.github/workflows/common.yml
+
+  deploy-backend:
+    needs: build
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      # Connect your workspace on nx.app and uncomment this to enable task distribution.
-      # The "--stop-agents-after" is optional, but allows idle agents to shut down once the "e2e-ci" targets have been requested
-      # - run: npx nx-cloud start-ci-run --distribute-on="5 linux-medium-js" --stop-agents-after="e2e-ci"
+      - name: Deploy backend
+        run: kubectl set image deployment/backend-deployment backend=my-docker-repo/backend:$GITHUB_SHA
 
-      # Cache node_modules
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 20
-          cache: 'npm'
-      - run: npm ci
-      - uses: nrwl/nx-set-shas@v4
+  deploy-frontend:
+    needs: build
+    runs-on: ubuntu-latest
 
-      - run: npx nx-cloud record -- nx format:check
-      - run: npx nx affected -t lint test build e2e-ci
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Deploy frontend
+        run: kubectl set image deployment/frontend-deployment frontend=my-docker-repo/frontend:$GITHUB_SHA
